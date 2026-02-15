@@ -239,13 +239,15 @@
 
     /* =========================
        [CSS: PANELS + TABLES]
-       Goal: Two aligned boxes (Last 10 tries + Leaderboard)
+       Goal: Two aligned boxes (Attempts + Best Averages)
+       Fix: remove the “extra blank band” by removing last-row borders
        ========================= */
     .grid2 {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
       gap: 12px;
       margin-top: 12px;
+      align-items: stretch;
     }
     @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
 
@@ -278,6 +280,9 @@
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
+    /* Change 1: remove the extra “bottom band” look by removing border on last row */
+    tbody tr:last-child td { border-bottom: 0; }
+
     tbody tr:hover { background: rgba(255,255,255,0.03); }
 
     .msCell { font-weight: 900; }
@@ -377,10 +382,8 @@
 
     <!-- =========================
          [HTML: TAB 1 — M2 HOLD TIMER]
-         Goal:
-           - Collect exactly 10 tries (a “session”)
-           - At 10 tries: compute avg -> insert into Top-10 -> reset session
-           - No extra footer spacing (removed)
+         Change 2: rename leaderboard title to “Best Averages”
+         Change 3: rename Try -> Attempts, remove Hold(s) column
          ========================= -->
     <div class="tabPane active" id="tab1">
 
@@ -419,9 +422,8 @@
           <table>
             <thead>
               <tr>
-                <th>Try</th>
+                <th>Attempts</th>
                 <th>Hold (ms)</th>
-                <th>Hold (s)</th>
               </tr>
             </thead>
             <tbody id="tbody1"></tbody>
@@ -430,7 +432,7 @@
 
         <div class="panel" aria-label="Session leaderboard">
           <div class="pillTitle">
-            <span>Top 10 session averages (best)</span>
+            <span>Best Averages</span>
             <button id="clearBoard1" class="smallBtn" type="button">Clear</button>
           </div>
           <table>
@@ -641,7 +643,7 @@
      Goal:
        - Exactly 10 tries per session
        - At 10: compute avg -> insert into Top-10 -> clear session
-       - Shows 10 slots with placeholders
+       - Table columns: Attempts + Hold(ms)
      ============================================================ */
   const box1 = document.getElementById('box1');
   const stateDot1 = document.getElementById('stateDot1');
@@ -685,35 +687,26 @@
   function renderTries1(){
     tbody1.innerHTML = '';
 
-    // Always show 10 rows (placeholders when missing)
     for (let i=0;i<10;i++){
       const ms = tries1[i];
       const tr = document.createElement('tr');
-      const tdTry = document.createElement('td');
+      const tdAttempt = document.createElement('td');
       const tdMs = document.createElement('td');
-      const tdS = document.createElement('td');
 
-      tdTry.textContent = `#${i+1}`;
+      tdAttempt.textContent = `#${i+1}`;
 
       if (typeof ms === 'number'){
         tdMs.textContent = ms.toFixed(2);
         tdMs.className = 'msCell mono';
         tdMs.style.color = msToColor(ms);
-
-        tdS.textContent = (ms/1000).toFixed(4);
-        tdS.className = 'mono';
-        tdS.style.color = '';
       } else {
         tdMs.textContent = '—';
         tdMs.className = 'mono';
         tdMs.style.color = 'rgba(231,238,248,0.35)';
-
-        tdS.textContent = '—';
-        tdS.className = 'mono';
-        tdS.style.color = 'rgba(231,238,248,0.35)';
       }
 
-      tr.appendChild(tdTry); tr.appendChild(tdMs); tr.appendChild(tdS);
+      tr.appendChild(tdAttempt);
+      tr.appendChild(tdMs);
       tbody1.appendChild(tr);
     }
 
@@ -743,7 +736,6 @@
   function renderLeaderboard1(){
     leaderBody1.innerHTML = '';
 
-    // Always show 10 rows (placeholders when missing)
     for (let i=0;i<10;i++){
       const ms = leaderboard1[i];
       const tr = document.createElement('tr');
@@ -767,7 +759,6 @@
   }
 
   function tryInsertLeaderboard1(avg){
-    // Top-10: keep only best/lowest 10, ignore worse
     if (!Number.isFinite(avg)) return;
 
     if (leaderboard1.length < 10){
@@ -776,7 +767,7 @@
       return;
     }
     const worst = leaderboard1[leaderboard1.length - 1];
-    if (avg >= worst) return; // worse/higher => ignore
+    if (avg >= worst) return;
 
     leaderboard1.push(avg);
     leaderboard1.sort((a,b)=>a-b);
@@ -793,10 +784,6 @@
   box1.addEventListener('contextmenu', e=>e.preventDefault());
   box1.addEventListener('pointerdown', ()=>box1.focus());
 
-  /* =========================
-     [JS: TAB 1 INPUT HANDLERS]
-     Goal: M1 hold, M2 hold timing, record on M2 release
-     ========================= */
   box1.addEventListener('mousedown', (e)=>{
     if (e.button === 0) m1Down1=true;
     if (e.button === 2){
@@ -827,10 +814,7 @@
         if (m1Down1){
           const dur = now() - start1;
 
-          // SESSION MODE:
-          // Add until we reach 10, then log avg + reset session.
           tries1.push(dur);
-
           renderTries1();
           flash1('ok');
 
@@ -840,7 +824,6 @@
             tryInsertLeaderboard1(avg);
             renderLeaderboard1();
 
-            // reset the session after logging
             tries1.length = 0;
             renderTries1();
           }
@@ -870,15 +853,14 @@
     renderLeaderboard1();
   });
 
-  // init tab1
   updateUI1();
   renderTries1();
   renderLeaderboard1();
 
-  /* ============================================================
+  /* =========================
      [JS: TAB 2 — INSTA FEINTS]
-     Goal: sequence logic + report (your existing behavior)
-     ============================================================ */
+     Goal: unchanged
+     ========================= */
   const box2 = document.getElementById('box2');
   const stateDot2 = document.getElementById('stateDot2');
   const stateText2 = document.getElementById('stateText2');
@@ -901,13 +883,12 @@
   const stage2Summary = document.getElementById('stage2Summary');
   const stage3Summary = document.getElementById('stage3Summary');
 
-  // insta state
   let insta_m1Down=false;
   let insta_measuringM2=false;
   let insta_m2Start=0;
 
-  let step=0; // 0=idle wait M1 down, 1=need M2#1,2=need M2#2,3=need M2#3,4=need M1 up (after last M2 up)
-  let m2Holds=[]; // length 0..3
+  let step=0;
+  let m2Holds=[];
   let lastM2UpTime=0;
   let m1ReleaseDelta = NaN;
 
@@ -1082,10 +1063,7 @@
 
   reset2.addEventListener('click', resetAttempt2);
 
-  // init tab2
   resetAttempt2();
-
-  // start focus
   box1.focus();
 })();
 </script>
