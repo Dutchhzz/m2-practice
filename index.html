@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>M2 Hold While M1 Held — 10-try Average</title>
+  <title>Instant feint Timings</title>
   <style>
     :root{
       --bg: #0b0f14;
@@ -51,15 +51,6 @@
       letter-spacing: 0.2px;
     }
 
-    .row {
-      margin-top: 14px;
-    }
-
-    .rules {
-      color: var(--text);
-      font-size: 14px;
-    }
-
     .hint {
       color: var(--muted);
       margin-top: 6px;
@@ -81,7 +72,6 @@
     }
 
     .status { font-size: 18px; }
-    #flags { margin-top: 10px; }
 
     .controls {
       display: flex;
@@ -116,6 +106,7 @@
       border: 1px solid var(--border2);
       background: rgba(122,162,255,0.10);
       box-shadow: inset 0 0 0 1px rgba(122,162,255,0.08);
+      white-space: nowrap;
     }
     .metric .label {
       color: var(--muted);
@@ -127,6 +118,7 @@
       font-size: 22px;
       font-weight: 700;
       color: var(--text);
+      font-variant-numeric: tabular-nums;
     }
 
     .metric.last {
@@ -134,14 +126,23 @@
       box-shadow: inset 0 0 0 1px rgba(86,211,100,0.10);
     }
 
-    table {
-      border-collapse: collapse;
-      width: 100%;
+    /* Fixed-height table region so the UI doesn't jump when rows change */
+    .tableWrap {
       margin-top: 12px;
-      overflow: hidden;
       border-radius: 14px;
       border: 1px solid var(--border);
       background: rgba(0,0,0,0.18);
+      overflow: hidden;
+
+      /* Reserve space (tweak if you want bigger/smaller) */
+      height: 360px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
     }
 
     thead th {
@@ -153,6 +154,15 @@
       border-bottom: 1px solid var(--border);
       padding: 10px 10px;
       text-align: right;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    /* scrollable body */
+    .tbodyScroll {
+      overflow: auto;
+      flex: 1;
     }
 
     tbody td {
@@ -169,24 +179,23 @@
     }
 
     .footer-note {
-      margin-top: 10px;
+      padding: 10px 12px;
       font-size: 12px;
       color: var(--muted);
+      border-top: 1px solid rgba(231,238,248,0.08);
+      background: rgba(255,255,255,0.02);
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <h1>M2 hold duration while holding M1</h1>
+    <h1>Instant feint Timings</h1>
 
-    <div class="row rules">
-      <div><b>Rules:</b> Hold <b>M1</b> (left), then press+hold <b>M2</b> (right). Release M2 to record a try.</div>
-      <div class="hint">Tip: Use the box area so the browser keeps focus. Right-click menu is disabled inside the box.</div>
-    </div>
+    <div class="hint">Tip: Use the box area so the browser keeps focus. Right-click menu is disabled inside the box.</div>
 
     <div id="box" class="box" tabindex="0" role="application" aria-label="Test area">
       <div>
-        <div class="status" id="status">Click inside the box, then hold M1. While holding M1, hold M2.</div>
+        <div class="status" id="status">Hold M1 to start!</div>
         <div class="hint" id="flags">M1: up · M2: up</div>
       </div>
     </div>
@@ -205,7 +214,7 @@
       </div>
     </div>
 
-    <div class="row">
+    <div class="tableWrap" aria-label="Results table">
       <table>
         <thead>
           <tr>
@@ -214,8 +223,14 @@
             <th>Hold (s)</th>
           </tr>
         </thead>
-        <tbody id="tbody"></tbody>
       </table>
+
+      <div class="tbodyScroll">
+        <table>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
       <div class="footer-note">Keeps a rolling window of the last 10 valid tries.</div>
     </div>
   </div>
@@ -250,7 +265,7 @@
     flags.textContent = `M1: ${m1Down ? 'down' : 'up'} · M2: ${m2Down ? 'down' : 'up'}`;
 
     if (!m1Down && !measuring) {
-      status.textContent = 'Hold M1 (left). While holding M1, press+hold M2 (right).';
+      status.textContent = 'Hold M1 to start!';
     } else if (m1Down && !measuring) {
       status.textContent = 'Good. Now hold M2 (right) while still holding M1.';
     } else if (measuring) {
