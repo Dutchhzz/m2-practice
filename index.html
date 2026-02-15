@@ -5,59 +5,219 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>M2 Hold While M1 Held — 10-try Average</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 24px; line-height: 1.35; }
+    :root{
+      --bg: #0b0f14;
+      --panel: #0f1621;
+      --panel2: #0c121b;
+      --text: #e7eef8;
+      --muted: #9fb0c7;
+      --border: rgba(231, 238, 248, 0.14);
+      --border2: rgba(231, 238, 248, 0.22);
+      --accent: #7aa2ff;
+      --good: #56d364;
+      --bad: #ff6b6b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, Arial, sans-serif;
+      line-height: 1.35;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(122,162,255,0.18), transparent 60%),
+                  radial-gradient(900px 500px at 10% 10%, rgba(86,211,100,0.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px 18px;
+    }
+
+    /* Center the entire app */
+    .app {
+      width: min(760px, 96vw);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 18px 70px rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    .row {
+      margin-top: 14px;
+    }
+
+    .rules {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .hint {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 13px;
+    }
+
     .box {
-      width: min(720px, 95vw);
+      width: 100%;
       height: 260px;
-      border: 2px dashed #444;
+      border: 2px dashed var(--border2);
       border-radius: 14px;
       display: grid;
       place-items: center;
       user-select: none;
       margin-top: 14px;
       padding: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      outline: none;
     }
+
     .status { font-size: 18px; }
-    .hint { color: #444; margin-top: 8px; }
-    .row { margin-top: 18px; width: min(720px, 95vw); }
-    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #888; cursor: pointer; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: right; }
+    #flags { margin-top: 10px; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border2);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    button:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(122,162,255,0.45);
+    }
+    button:active { transform: translateY(1px); }
+
+    /* Bigger, more important badges */
+    .metric {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border2);
+      background: rgba(122,162,255,0.10);
+      box-shadow: inset 0 0 0 1px rgba(122,162,255,0.08);
+    }
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+    .metric .value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .metric.last {
+      background: rgba(86,211,100,0.10);
+      box-shadow: inset 0 0 0 1px rgba(86,211,100,0.10);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+    }
+
+    thead th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 10px;
+      text-align: right;
+    }
+
+    tbody td {
+      border-bottom: 1px solid rgba(231,238,248,0.08);
+      padding: 10px 10px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
     th:first-child, td:first-child { text-align: left; }
-    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid #aaa; margin-left: 8px; font-size: 12px; }
+
+    tbody tr:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
-  <h1>M2 hold duration while holding M1</h1>
-  <div class="row">
-    <div><b>Rules:</b> Hold <b>M1</b> (left), then press+hold <b>M2</b> (right). Release M2 to record a try.</div>
-    <div class="hint">Tip: Use the box area so the browser keeps focus. Right-click menu is disabled inside the box.</div>
-  </div>
+  <div class="app">
+    <h1>M2 hold duration while holding M1</h1>
 
-  <div id="box" class="box" tabindex="0" role="application" aria-label="Test area">
-    <div>
-      <div class="status" id="status">Click inside the box, then hold M1. While holding M1, hold M2.</div>
-      <div class="hint" id="flags">M1: up · M2: up</div>
+    <div class="row rules">
+      <div><b>Rules:</b> Hold <b>M1</b> (left), then press+hold <b>M2</b> (right). Release M2 to record a try.</div>
+      <div class="hint">Tip: Use the box area so the browser keeps focus. Right-click menu is disabled inside the box.</div>
     </div>
-  </div>
 
-  <div class="row">
-    <button id="reset">Reset tries</button>
-    <span class="pill" id="avgPill">Avg (last 10): —</span>
-    <span class="pill" id="lastPill">Last: —</span>
-  </div>
+    <div id="box" class="box" tabindex="0" role="application" aria-label="Test area">
+      <div>
+        <div class="status" id="status">Click inside the box, then hold M1. While holding M1, hold M2.</div>
+        <div class="hint" id="flags">M1: up · M2: up</div>
+      </div>
+    </div>
 
-  <div class="row">
-    <table>
-      <thead>
-        <tr>
-          <th>Try</th>
-          <th>Hold (ms)</th>
-          <th>Hold (s)</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <div class="controls">
+      <button id="reset">Reset tries</button>
+
+      <div class="metric" id="avgMetric" aria-label="Average timing">
+        <div class="label" id="avgLabel">Avg (last 10)</div>
+        <div class="value" id="avgValue">—</div>
+      </div>
+
+      <div class="metric last" id="lastMetric" aria-label="Last timing">
+        <div class="label">Last</div>
+        <div class="value" id="lastValue">—</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <table>
+        <thead>
+          <tr>
+            <th>Try</th>
+            <th>Hold (ms)</th>
+            <th>Hold (s)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="footer-note">Keeps a rolling window of the last 10 valid tries.</div>
+    </div>
   </div>
 
 <script>
@@ -66,8 +226,11 @@
   const status = document.getElementById('status');
   const flags = document.getElementById('flags');
   const tbody = document.getElementById('tbody');
-  const avgPill = document.getElementById('avgPill');
-  const lastPill = document.getElementById('lastPill');
+
+  const avgLabel = document.getElementById('avgLabel');
+  const avgValue = document.getElementById('avgValue');
+  const lastValue = document.getElementById('lastValue');
+
   const resetBtn = document.getElementById('reset');
 
   // State
@@ -115,16 +278,18 @@
 
     if (tries.length) {
       const last = tries[tries.length - 1];
-      lastPill.textContent = `Last: ${last.toFixed(2)} ms`;
+      lastValue.textContent = `${last.toFixed(2)} ms`;
     } else {
-      lastPill.textContent = 'Last: —';
+      lastValue.textContent = '—';
     }
 
     if (tries.length) {
       const avg = tries.reduce((a, b) => a + b, 0) / tries.length;
-      avgPill.textContent = `Avg (last ${tries.length}): ${avg.toFixed(2)} ms`;
+      avgLabel.textContent = `Avg (last ${tries.length})`;
+      avgValue.textContent = `${avg.toFixed(2)} ms`;
     } else {
-      avgPill.textContent = 'Avg (last 10): —';
+      avgLabel.textContent = 'Avg (last 10)';
+      avgValue.textContent = '—';
     }
   }
 
@@ -198,7 +363,6 @@
 
   // Safety: if mouse leaves the box while pressed, stop measuring to avoid stuck state
   box.addEventListener('mouseleave', () => {
-    // Don’t auto-invalidate if nothing is happening; but prevent “stuck measuring”
     if (measuring && (!m2Down || !m1Down)) {
       measuring = false;
       startTime = 0;
