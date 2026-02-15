@@ -1,1 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>M2 Hold Timer</title>
 
+  <style>
+    /* =========================
+       [CSS: THEME + GLOBALS]
+       Goal: Colors, base layout, typography
+       ========================= */
+    :root{
+      --bg: #0b0f14;
+      --text: #e7eef8;
+      --muted: #9fb0c7;
+
+      --border: rgba(231, 238, 248, 0.14);
+      --border2: rgba(231, 238, 248, 0.22);
+
+      --accent: #7aa2ff;
+      --good: #56d364;
+      --warn: #ff9f1a; /* 50ms orange */
+      --bad:  #ff4d4d;
+
+      --panelGrad: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, Arial, sans-serif;
+      line-height: 1.35;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(122,162,255,0.18), transparent 60%),
+                  radial-gradient(900px 500px at 10% 10%, rgba(86,211,100,0.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px 18px;
+    }
+
+    .app {
+      width: min(920px, 96vw);
+      background: var(--panelGrad);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 18px 70px rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+    }
+
+    header { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
+
+    /* =========================
+       [CSS: TABS]
+       Goal: 2 tab buttons + active styles
+       ========================= */
+    .tabs {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .tabBtn {
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border2);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .tabBtn:hover { background: rgba(255,255,255,0.06); border-color: rgba(122,162,255,0.40); }
+    .tabBtn.active {
+      background: rgba(122,162,255,0.14);
+      border-color: rgba(122,162,255,0.60);
+      box-shadow: inset 0 0 0 1px rgba(122,162,255,0.12);
+    }
+
+    .hint {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 13px;
+    }
+
+    /* =========================
+       [CSS: INPUT BOX + STATE UI]
+       Goal: The big dashed area + dot + check/cross flash
+       ========================= */
+    .box {
+      width: 100%;
+      height: 260px;
+      border: 2px dashed var(--border2);
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      user-select: none;
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--panelGrad);
+      outline: none;
+      position: relative;
+    }
+
+    .stateOnly {
+      display: grid;
+      place-items: center;
+      gap: 10px;
+      text-align: center;
+      min-width: 220px;
+    }
+
+    .stateLine {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      border: 1px solid rgba(231,238,248,0.35);
+      background: rgba(231,238,248,0.10);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+    .dot.idle { background: rgba(231,238,248,0.10); }
+    .dot.armed { background: rgba(122,162,255,0.55); border-color: rgba(122,162,255,0.75); box-shadow: 0 0 18px rgba(122,162,255,0.20); }
+    .dot.measuring {
+      background: rgba(122,162,255,0.75);
+      border-color: rgba(122,162,255,0.90);
+      box-shadow: 0 0 22px rgba(122,162,255,0.28);
+      animation: throb 700ms ease-in-out infinite;
+    }
+    @keyframes throb { 0%{transform:scale(1)} 50%{transform:scale(1.25)} 100%{transform:scale(1)} }
+
+    .flashIcons {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 2px;
+      height: 22px;
+    }
+    .icon {
+      width: 18px; height: 18px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 1px solid var(--border2);
+      background: rgba(255,255,255,0.03);
+      opacity: 0.0;
+      transform: translateY(1px) scale(0.95);
+      transition: opacity 120ms ease, transform 120ms ease;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .icon.show { opacity: 1; transform: translateY(0) scale(1); }
+    .icon.ok { border-color: rgba(86,211,100,0.55); background: rgba(86,211,100,0.12); }
+    .icon.bad { border-color: rgba(255,77,77,0.55); background: rgba(255,77,77,0.12); }
+
+    /* =========================
+       [CSS: CONTROLS + METRICS]
+       Goal: Reset button + Avg/Last pills
+       ========================= */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border2);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    button:hover { background: rgba(255,255,255,0.07); border-color: rgba(122,162,255,0.45); }
+    button:active { transform: translateY(1px); }
+
+    .metric {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border2);
+      background: rgba(122,162,255,0.10);
+      box-shadow: inset 0 0 0 1px rgba(122,162,255,0.08);
+      white-space: nowrap;
+    }
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+    .metric .value {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .metric.last {
+      background: rgba(86,211,100,0.10);
+      box-shadow: inset 0 0 0 1px rgba(86,211,100,0.10);
+    }
+
+    /* =========================
+       [CSS: SPECIAL AVG EFFECT]
+       Goal: Highlight avg when it falls in 35-40ms
+       ========================= */
+    .avg-special {
+      animation: avgPulse 900ms ease-out 1;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 204, 0, 0.22),
+        0 0 22px rgba(255, 204, 0, 0.20),
+        0 0 44px rgba(255, 204, 0, 0.10);
+      border-color: rgba(255, 204, 0, 0.45) !important;
+      background: rgba(255, 204, 0, 0.10) !important;
+    }
+    @keyframes avgPulse { 0%{transform:scale(1)} 40%{transform:scale(1.03)} 100%{transform:scale(1)} }
+
+    /* =========================
+       [CSS: PANELS + TABLES]
+       Goal: Two aligned boxes (Last 10 tries + Leaderboard)
+       ========================= */
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+    .panel {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    table { border-collapse: collapse; width: 100%; }
+
+    thead th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 10px;
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+
+    tbody td {
+      border-bottom: 1px solid rgba(231,238,248,0.08);
+      padding: 10px 10px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    .msCell { font-weight: 900; }
+    .mono { font-variant-numeric: tabular-nums; }
+
+    .smallBtn {
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .pillTitle {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(231,238,248,0.08);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+      min-height: 40px;
+    }
+
+    /* =========================
+       [CSS: TAB 2 REPORT UI]
+       Goal: the "Sequence report" layout
+       ========================= */
+    .report {
+      padding: 10px 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .stageRow{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(231,238,248,0.10);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+    .stageLeft{ display:flex; align-items:center; gap:10px; }
+    .badge {
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      display:grid;
+      place-items:center;
+      font-weight: 900;
+      border: 1px solid rgba(231,238,248,0.16);
+      background: rgba(255,255,255,0.03);
+    }
+    .badge.ok { border-color: rgba(86,211,100,0.55); background: rgba(86,211,100,0.12); }
+    .badge.bad { border-color: rgba(255,77,77,0.55); background: rgba(255,77,77,0.12); }
+    .stageName{ font-weight: 900; color: var(--text); }
+    .stageCond{ color: var(--muted); font-size: 12px; }
+    .kv {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .kvItem{
+      padding: 10px 12px;
+      border: 1px solid rgba(231,238,248,0.10);
+      border-radius: 12px;
+      background: rgba(0,0,0,0.18);
+      display:flex;
+      justify-content: space-between;
+      gap:10px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kvKey{ color: var(--muted); }
+    .kvVal{ font-weight: 900; }
+
+    /* Hide/show tabs */
+    .tabPane { display: none; }
+    .tabPane.active { display: block; }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- =========================
+         [HTML: HEADER + TABS]
+         Goal: Title + 2 tab buttons
+         ========================= -->
+    <header>
+      <h1 id="pageTitle">M2 Hold Timer</h1>
+      <div class="tabs">
+        <button class="tabBtn active" id="tabBtn1" type="button">M2 Hold Timer</button>
+        <button class="tabBtn" id="tabBtn2" type="button">Insta Feints Timings</button>
+      </div>
+    </header>
+
+    <div class="hint">Tip: Click inside the box so the page keeps focus. Right-click menu is disabled inside the box.</div>
+
+    <!-- =========================
+         [HTML: TAB 1 — M2 HOLD TIMER]
+         Goal:
+           - Collect exactly 10 tries (a “session”)
+           - At 10 tries: compute avg -> insert into Top-10 -> reset session
+           - No extra footer spacing (removed)
+         ========================= -->
+    <div class="tabPane active" id="tab1">
+
+      <div id="box1" class="box" tabindex="0" role="application" aria-label="M2 Hold test area">
+        <div class="stateOnly" aria-live="polite">
+          <div class="stateLine">
+            <span class="dot idle" id="stateDot1" aria-hidden="true"></span>
+            <span id="stateText1">IDLE</span>
+          </div>
+          <div class="flashIcons" aria-hidden="true">
+            <span class="icon ok" id="okIcon1">✓</span>
+            <span class="icon bad" id="badIcon1">✕</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="reset1" type="button">Reset tries</button>
+
+        <div class="metric" id="avgMetric1" aria-label="Average timing">
+          <div class="label" id="avgLabel1">Avg (last 10)</div>
+          <div class="value mono" id="avgValue1">—</div>
+        </div>
+
+        <div class="metric last" id="lastMetric1" aria-label="Last timing">
+          <div class="label">Last</div>
+          <div class="value mono" id="lastValue1">—</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel" aria-label="Last 10 tries">
+          <div class="pillTitle">
+            <span>Last 10 tries</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Try</th>
+                <th>Hold (ms)</th>
+                <th>Hold (s)</th>
+              </tr>
+            </thead>
+            <tbody id="tbody1"></tbody>
+          </table>
+        </div>
+
+        <div class="panel" aria-label="Session leaderboard">
+          <div class="pillTitle">
+            <span>Top 10 session averages (best)</span>
+            <button id="clearBoard1" class="smallBtn" type="button">Clear</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Avg (ms)</th>
+              </tr>
+            </thead>
+            <tbody id="leaderBody1"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================
+         [HTML: TAB 2]
+         Goal: Sequence timing / report (unchanged)
+         ========================= -->
+    <div class="tabPane" id="tab2">
+      <div id="box2" class="box" tabindex="0" role="application" aria-label="Insta Feints test area">
+        <div class="stateOnly" aria-live="polite">
+          <div class="stateLine">
+            <span class="dot idle" id="stateDot2" aria-hidden="true"></span>
+            <span id="stateText2">IDLE</span>
+          </div>
+          <div class="flashIcons" aria-hidden="true">
+            <span class="icon ok" id="okIcon2">✓</span>
+            <span class="icon bad" id="badIcon2">✕</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="reset2" type="button">Reset attempt</button>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="pillTitle">
+            <span>Sequence report</span>
+          </div>
+          <div class="report">
+            <div class="kv" id="kv2">
+              <!-- populated by JS -->
+            </div>
+
+            <div class="stageRow" id="stage1Row">
+              <div class="stageLeft">
+                <div class="badge" id="stage1Badge">—</div>
+                <div>
+                  <div class="stageName">Stage 1</div>
+                  <div class="stageCond">All M2 holds ≤ 60ms, and M1-release timing ≤ 60ms</div>
+                </div>
+              </div>
+              <div class="mono" id="stage1Summary">—</div>
+            </div>
+
+            <div class="stageRow" id="stage2Row">
+              <div class="stageLeft">
+                <div class="badge" id="stage2Badge">—</div>
+                <div>
+                  <div class="stageName">Stage 2</div>
+                  <div class="stageCond">All M2 holds ≤ 50ms, and M1-release timing ≤ 50ms</div>
+                </div>
+              </div>
+              <div class="mono" id="stage2Summary">—</div>
+            </div>
+
+            <div class="stageRow" id="stage3Row">
+              <div class="stageLeft">
+                <div class="badge" id="stage3Badge">—</div>
+                <div>
+                  <div class="stageName">Stage 3</div>
+                  <div class="stageCond">All M2 holds ≤ 40ms, and M1-release timing ≤ 40ms</div>
+                </div>
+              </div>
+              <div class="mono" id="stage3Summary">—</div>
+            </div>
+
+            <div class="pillTitle" style="border:0; background:transparent; padding:0; min-height:auto; text-transform:none; letter-spacing:0; color:var(--muted); font-size:12px;">
+              Sequence: Hold M1 → M2 → M2 → M2 → release M1. It will complete even if you fail, so you can see what passed and what didn’t.
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="pillTitle">
+            <span>How it’s measured</span>
+          </div>
+          <div class="report" style="color: var(--muted);">
+            <div>• Each <b style="color: var(--text);">M2 timing</b> is the hold duration: (M2 down → M2 up).</div>
+            <div>• <b style="color: var(--text);">M1 release timing</b> is: (last M2 up → M1 up).</div>
+            <div>• Stages are evaluated after the full attempt. You’ll see ✅/❌ per stage.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  /* =========================
+     [JS: SHARED HELPERS]
+     Goal: timing + colors + UI helpers shared across tabs
+     ========================= */
+  function now() {
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+  /* =========================
+     [JS: COLOR MAP]
+     Goal: ms => color (green perfect 20-31, orange at 50, red > 70)
+     ========================= */
+  function msToColor(ms) {
+    if (!Number.isFinite(ms)) return 'inherit';
+
+    const green  = { r:  86, g: 211, b: 100 };
+    const orange = { r: 255, g: 159, b:  26 };
+    const red    = { r: 255, g:  77, b:  77 };
+
+    if (ms >= 20 && ms <= 31) return `rgb(${green.r}, ${green.g}, ${green.b})`;
+
+    if (ms > 31 && ms < 50) {
+      const t = (ms - 31) / (50 - 31);
+      const r = Math.round(lerp(green.r,  orange.r, t));
+      const g = Math.round(lerp(green.g,  orange.g, t));
+      const b = Math.round(lerp(green.b,  orange.b, t));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    if (ms >= 50 && ms < 70) {
+      const t = (ms - 50) / (70 - 50);
+      const r = Math.round(lerp(orange.r, red.r, t));
+      const g = Math.round(lerp(orange.g, red.g, t));
+      const b = Math.round(lerp(orange.b, red.b, t));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    if (ms >= 70) return `rgb(${red.r}, ${red.g}, ${red.b})`;
+
+    if (ms < 20) {
+      const t = clamp((20 - ms) / 10, 0, 1);
+      const r = Math.round(lerp(green.r, 70, t));
+      const g = Math.round(lerp(green.g, 225, t));
+      const b = Math.round(lerp(green.b, 180, t));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    return `rgb(${orange.r}, ${orange.g}, ${orange.b})`;
+  }
+
+  function setState(dotEl, textEl, kind, label){
+    dotEl.className = `dot ${kind}`;
+    textEl.textContent = label;
+  }
+
+  function makeFlasher(okEl, badEl){
+    let t = null;
+    return function flash(which){
+      if (t) clearTimeout(t);
+      okEl.classList.remove('show');
+      badEl.classList.remove('show');
+      if (which === 'ok') okEl.classList.add('show');
+      if (which === 'bad') badEl.classList.add('show');
+      t = setTimeout(() => {
+        okEl.classList.remove('show');
+        badEl.classList.remove('show');
+      }, 450);
+    };
+  }
+
+  function computeAvg(arr){
+    if (!arr.length) return NaN;
+    return arr.reduce((a,b)=>a+b,0) / arr.length;
+  }
+
+  /* =========================
+     [JS: TABS]
+     Goal: switching between Tab 1 and Tab 2
+     ========================= */
+  const pageTitle = document.getElementById('pageTitle');
+  const tabBtn1 = document.getElementById('tabBtn1');
+  const tabBtn2 = document.getElementById('tabBtn2');
+  const tab1 = document.getElementById('tab1');
+  const tab2 = document.getElementById('tab2');
+
+  function activateTab(n){
+    if (n === 1){
+      tabBtn1.classList.add('active'); tabBtn2.classList.remove('active');
+      tab1.classList.add('active'); tab2.classList.remove('active');
+      pageTitle.textContent = 'M2 Hold Timer';
+      box1.focus();
+    } else {
+      tabBtn2.classList.add('active'); tabBtn1.classList.remove('active');
+      tab2.classList.add('active'); tab1.classList.remove('active');
+      pageTitle.textContent = 'Insta Feints Timings';
+      box2.focus();
+    }
+  }
+  tabBtn1.addEventListener('click', ()=>activateTab(1));
+  tabBtn2.addEventListener('click', ()=>activateTab(2));
+
+  /* ============================================================
+     [JS: TAB 1 — M2 HOLD TIMER (SESSION MODE)]
+     Goal:
+       - Exactly 10 tries per session
+       - At 10: compute avg -> insert into Top-10 -> clear session
+       - Shows 10 slots with placeholders
+     ============================================================ */
+  const box1 = document.getElementById('box1');
+  const stateDot1 = document.getElementById('stateDot1');
+  const stateText1 = document.getElementById('stateText1');
+  const okIcon1 = document.getElementById('okIcon1');
+  const badIcon1 = document.getElementById('badIcon1');
+  const flash1 = makeFlasher(okIcon1, badIcon1);
+
+  const tbody1 = document.getElementById('tbody1');
+  const leaderBody1 = document.getElementById('leaderBody1');
+
+  const avgMetric1 = document.getElementById('avgMetric1');
+  const avgLabel1 = document.getElementById('avgLabel1');
+  const avgValue1 = document.getElementById('avgValue1');
+  const lastValue1 = document.getElementById('lastValue1');
+
+  const reset1 = document.getElementById('reset1');
+  const clearBoard1 = document.getElementById('clearBoard1');
+
+  let m1Down1=false, m2Down1=false, measuring1=false, start1=0;
+
+  // Session tries (0..10). Resets after logging.
+  const tries1 = [];
+
+  // Leaderboard: best 10 averages (ascending)
+  const leaderboard1 = [];
+
+  let specialTimer1=null;
+  function triggerSpecialAvg1(){
+    avgMetric1.classList.add('avg-special');
+    if (specialTimer1) clearTimeout(specialTimer1);
+    specialTimer1 = setTimeout(()=>avgMetric1.classList.remove('avg-special'), 1200);
+  }
+
+  function updateUI1(){
+    if (!m1Down1 && !measuring1) setState(stateDot1, stateText1, 'idle', 'IDLE');
+    else if (m1Down1 && !measuring1) setState(stateDot1, stateText1, 'armed', 'ARMED');
+    else setState(stateDot1, stateText1, 'measuring', 'MEASURING');
+  }
+
+  function renderTries1(){
+    tbody1.innerHTML = '';
+
+    // Always show 10 rows (placeholders when missing)
+    for (let i=0;i<10;i++){
+      const ms = tries1[i];
+      const tr = document.createElement('tr');
+      const tdTry = document.createElement('td');
+      const tdMs = document.createElement('td');
+      const tdS = document.createElement('td');
+
+      tdTry.textContent = `#${i+1}`;
+
+      if (typeof ms === 'number'){
+        tdMs.textContent = ms.toFixed(2);
+        tdMs.className = 'msCell mono';
+        tdMs.style.color = msToColor(ms);
+
+        tdS.textContent = (ms/1000).toFixed(4);
+        tdS.className = 'mono';
+        tdS.style.color = '';
+      } else {
+        tdMs.textContent = '—';
+        tdMs.className = 'mono';
+        tdMs.style.color = 'rgba(231,238,248,0.35)';
+
+        tdS.textContent = '—';
+        tdS.className = 'mono';
+        tdS.style.color = 'rgba(231,238,248,0.35)';
+      }
+
+      tr.appendChild(tdTry); tr.appendChild(tdMs); tr.appendChild(tdS);
+      tbody1.appendChild(tr);
+    }
+
+    if (tries1.length){
+      const last = tries1[tries1.length-1];
+      lastValue1.textContent = `${last.toFixed(2)} ms`;
+      lastValue1.style.color = msToColor(last);
+    } else {
+      lastValue1.textContent = '—';
+      lastValue1.style.color = '';
+    }
+
+    if (tries1.length){
+      const avg = computeAvg(tries1);
+      avgLabel1.textContent = `Avg (last ${tries1.length})`;
+      avgValue1.textContent = `${avg.toFixed(2)} ms`;
+      avgValue1.style.color = msToColor(avg);
+
+      if (tries1.length === 10 && avg >= 35 && avg <= 40) triggerSpecialAvg1();
+    } else {
+      avgLabel1.textContent = 'Avg (last 10)';
+      avgValue1.textContent = '—';
+      avgValue1.style.color = '';
+    }
+  }
+
+  function renderLeaderboard1(){
+    leaderBody1.innerHTML = '';
+
+    // Always show 10 rows (placeholders when missing)
+    for (let i=0;i<10;i++){
+      const ms = leaderboard1[i];
+      const tr = document.createElement('tr');
+      const tdRank = document.createElement('td');
+      const tdAvg = document.createElement('td');
+      tdRank.textContent = `#${i+1}`;
+
+      if (typeof ms === 'number'){
+        tdAvg.textContent = ms.toFixed(2);
+        tdAvg.className = 'msCell mono';
+        tdAvg.style.color = msToColor(ms);
+      } else {
+        tdAvg.textContent = '—';
+        tdAvg.className = 'mono';
+        tdAvg.style.color = 'rgba(231,238,248,0.35)';
+      }
+
+      tr.appendChild(tdRank); tr.appendChild(tdAvg);
+      leaderBody1.appendChild(tr);
+    }
+  }
+
+  function tryInsertLeaderboard1(avg){
+    // Top-10: keep only best/lowest 10, ignore worse
+    if (!Number.isFinite(avg)) return;
+
+    if (leaderboard1.length < 10){
+      leaderboard1.push(avg);
+      leaderboard1.sort((a,b)=>a-b);
+      return;
+    }
+    const worst = leaderboard1[leaderboard1.length - 1];
+    if (avg >= worst) return; // worse/higher => ignore
+
+    leaderboard1.push(avg);
+    leaderboard1.sort((a,b)=>a-b);
+    leaderboard1.length = 10;
+  }
+
+  function resetTries1(){
+    m1Down1=false; m2Down1=false; measuring1=false; start1=0;
+    tries1.length = 0;
+    updateUI1();
+    renderTries1();
+  }
+
+  box1.addEventListener('contextmenu', e=>e.preventDefault());
+  box1.addEventListener('pointerdown', ()=>box1.focus());
+
+  /* =========================
+     [JS: TAB 1 INPUT HANDLERS]
+     Goal: M1 hold, M2 hold timing, record on M2 release
+     ========================= */
+  box1.addEventListener('mousedown', (e)=>{
+    if (e.button === 0) m1Down1=true;
+    if (e.button === 2){
+      m2Down1=true;
+      if (m1Down1 && !measuring1){
+        measuring1=true;
+        start1 = now();
+      }
+    }
+    updateUI1();
+  });
+
+  box1.addEventListener('mouseup', (e)=>{
+    if (e.button === 0){
+      m1Down1=false;
+      if (measuring1){
+        measuring1=false;
+        start1=0;
+        flash1('bad');
+      }
+      updateUI1();
+    }
+
+    if (e.button === 2){
+      m2Down1=false;
+
+      if (measuring1){
+        if (m1Down1){
+          const dur = now() - start1;
+
+          // SESSION MODE:
+          // Add until we reach 10, then log avg + reset session.
+          tries1.push(dur);
+
+          renderTries1();
+          flash1('ok');
+
+          if (tries1.length === 10){
+            const avg = computeAvg(tries1);
+            if (avg >= 35 && avg <= 40) triggerSpecialAvg1();
+            tryInsertLeaderboard1(avg);
+            renderLeaderboard1();
+
+            // reset the session after logging
+            tries1.length = 0;
+            renderTries1();
+          }
+        } else {
+          flash1('bad');
+        }
+
+        measuring1=false;
+        start1=0;
+        updateUI1();
+      } else {
+        updateUI1();
+      }
+    }
+  });
+
+  box1.addEventListener('mouseleave', ()=>{
+    if (measuring1 && (!m2Down1 || !m1Down1)){
+      measuring1=false; start1=0;
+    }
+    updateUI1();
+  });
+
+  reset1.addEventListener('click', resetTries1);
+  clearBoard1.addEventListener('click', ()=>{
+    leaderboard1.length = 0;
+    renderLeaderboard1();
+  });
+
+  // init tab1
+  updateUI1();
+  renderTries1();
+  renderLeaderboard1();
+
+  /* ============================================================
+     [JS: TAB 2 — INSTA FEINTS]
+     Goal: sequence logic + report (your existing behavior)
+     ============================================================ */
+  const box2 = document.getElementById('box2');
+  const stateDot2 = document.getElementById('stateDot2');
+  const stateText2 = document.getElementById('stateText2');
+  const okIcon2 = document.getElementById('okIcon2');
+  const badIcon2 = document.getElementById('badIcon2');
+  const flash2 = makeFlasher(okIcon2, badIcon2);
+
+  const reset2 = document.getElementById('reset2');
+  const kv2 = document.getElementById('kv2');
+
+  const stage1Row = document.getElementById('stage1Row');
+  const stage2Row = document.getElementById('stage2Row');
+  const stage3Row = document.getElementById('stage3Row');
+
+  const stage1Badge = document.getElementById('stage1Badge');
+  const stage2Badge = document.getElementById('stage2Badge');
+  const stage3Badge = document.getElementById('stage3Badge');
+
+  const stage1Summary = document.getElementById('stage1Summary');
+  const stage2Summary = document.getElementById('stage2Summary');
+  const stage3Summary = document.getElementById('stage3Summary');
+
+  // insta state
+  let insta_m1Down=false;
+  let insta_measuringM2=false;
+  let insta_m2Start=0;
+
+  let step=0; // 0=idle wait M1 down, 1=need M2#1,2=need M2#2,3=need M2#3,4=need M1 up (after last M2 up)
+  let m2Holds=[]; // length 0..3
+  let lastM2UpTime=0;
+  let m1ReleaseDelta = NaN;
+
+  function setInstaState(kind,label){
+    setState(stateDot2, stateText2, kind, label);
+  }
+
+  function updateUI2(){
+    if (!insta_m1Down && step===0) setInstaState('idle','IDLE');
+    else if (insta_m1Down && !insta_measuringM2) setInstaState('armed', `STEP ${step||1}`);
+    else setInstaState('measuring','MEASURING');
+  }
+
+  function resetAttempt2(){
+    insta_m1Down=false;
+    insta_measuringM2=false;
+    insta_m2Start=0;
+    step=0;
+    m2Holds=[];
+    lastM2UpTime=0;
+    m1ReleaseDelta = NaN;
+    renderReport2();
+    updateUI2();
+  }
+
+  function kvItem(key, val, cls=''){
+    const div = document.createElement('div');
+    div.className = 'kvItem';
+    const k = document.createElement('div');
+    k.className = 'kvKey';
+    k.textContent = key;
+    const v = document.createElement('div');
+    v.className = `kvVal mono ${cls}`.trim();
+    v.textContent = val;
+    div.appendChild(k); div.appendChild(v);
+    return div;
+  }
+
+  function setBadge(badgeEl, ok){
+    badgeEl.className = `badge ${ok ? 'ok' : 'bad'}`;
+    badgeEl.textContent = ok ? '✓' : '✕';
+  }
+
+  function setStageRow(rowEl, ok){
+    rowEl.style.borderColor = ok ? 'rgba(86,211,100,0.28)' : 'rgba(255,77,77,0.28)';
+    rowEl.style.background = ok ? 'rgba(86,211,100,0.06)' : 'rgba(255,77,77,0.06)';
+  }
+
+  function evalStage(maxMs){
+    if (m2Holds.length !== 3 || !Number.isFinite(m1ReleaseDelta)) return false;
+    const m2ok = m2Holds.every(x => Number.isFinite(x) && x <= maxMs);
+    const m1ok = m1ReleaseDelta <= maxMs;
+    return m2ok && m1ok;
+  }
+
+  function renderReport2(){
+    kv2.innerHTML = '';
+    const m2a = m2Holds[0];
+    const m2b = m2Holds[1];
+    const m2c = m2Holds[2];
+
+    kv2.appendChild(kvItem('M2 #1 hold', Number.isFinite(m2a) ? `${m2a.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M2 #2 hold', Number.isFinite(m2b) ? `${m2b.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M2 #3 hold', Number.isFinite(m2c) ? `${m2c.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M1 release timing', Number.isFinite(m1ReleaseDelta) ? `${m1ReleaseDelta.toFixed(2)} ms` : '—'));
+
+    [...kv2.querySelectorAll('.kvVal')].forEach((el, idx) => {
+      const raw = [m2a,m2b,m2c,m1ReleaseDelta][idx];
+      el.style.color = Number.isFinite(raw) ? msToColor(raw) : 'rgba(231,238,248,0.35)';
+    });
+
+    const s1 = evalStage(60);
+    const s2 = evalStage(50);
+    const s3 = evalStage(40);
+
+    if (m2Holds.length === 3 && Number.isFinite(m1ReleaseDelta)){
+      setBadge(stage1Badge, s1); setStageRow(stage1Row, s1);
+      setBadge(stage2Badge, s2); setStageRow(stage2Row, s2);
+      setBadge(stage3Badge, s3); setStageRow(stage3Row, s3);
+
+      stage1Summary.textContent = s1 ? 'PASS' : 'FAIL';
+      stage2Summary.textContent = s2 ? 'PASS' : 'FAIL';
+      stage3Summary.textContent = s3 ? 'PASS' : 'FAIL';
+    } else {
+      stage1Badge.className = 'badge'; stage1Badge.textContent = '—';
+      stage2Badge.className = 'badge'; stage2Badge.textContent = '—';
+      stage3Badge.className = 'badge'; stage3Badge.textContent = '—';
+      stage1Summary.textContent = '—';
+      stage2Summary.textContent = '—';
+      stage3Summary.textContent = '—';
+      stage1Row.style.background = 'rgba(255,255,255,0.02)';
+      stage2Row.style.background = 'rgba(255,255,255,0.02)';
+      stage3Row.style.background = 'rgba(255,255,255,0.02)';
+      stage1Row.style.borderColor = 'rgba(231,238,248,0.10)';
+      stage2Row.style.borderColor = 'rgba(231,238,248,0.10)';
+      stage3Row.style.borderColor = 'rgba(231,238,248,0.10)';
+    }
+  }
+
+  function hardFailFlash(){ flash2('bad'); }
+
+  box2.addEventListener('contextmenu', e=>e.preventDefault());
+  box2.addEventListener('pointerdown', ()=>box2.focus());
+
+  box2.addEventListener('mousedown', (e)=>{
+    if (e.button === 0){
+      insta_m1Down = true;
+      if (step === 0) step = 1;
+      updateUI2();
+      return;
+    }
+
+    if (e.button === 2){
+      if (!insta_m1Down){ hardFailFlash(); return; }
+
+      if (step >= 1 && step <= 3 && !insta_measuringM2){
+        insta_measuringM2 = true;
+        insta_m2Start = now();
+        updateUI2();
+      } else {
+        hardFailFlash();
+      }
+    }
+  });
+
+  box2.addEventListener('mouseup', (e)=>{
+    if (e.button === 2){
+      if (insta_measuringM2){
+        const dur = now() - insta_m2Start;
+        m2Holds.push(dur);
+        lastM2UpTime = now();
+        insta_measuringM2 = false;
+        insta_m2Start = 0;
+
+        flash2('ok');
+        if (step >= 1 && step <= 3) step += 1;
+
+        updateUI2();
+        renderReport2();
+      }
+      return;
+    }
+
+    if (e.button === 0){
+      if (!insta_m1Down) return;
+      insta_m1Down = false;
+
+      if (step === 4 && m2Holds.length === 3 && Number.isFinite(lastM2UpTime)){
+        m1ReleaseDelta = now() - lastM2UpTime;
+        flash2('ok');
+        renderReport2();
+      } else {
+        hardFailFlash();
+        renderReport2();
+      }
+
+      insta_measuringM2 = false;
+      insta_m2Start = 0;
+      step = 0;
+
+      updateUI2();
+    }
+  });
+
+  box2.addEventListener('mouseleave', ()=>{
+    if (insta_measuringM2){
+      insta_measuringM2 = false;
+      insta_m2Start = 0;
+    }
+    updateUI2();
+  });
+
+  reset2.addEventListener('click', resetAttempt2);
+
+  // init tab2
+  resetAttempt2();
+
+  // start focus
+  box1.focus();
+})();
+</script>
+</body>
+</html>
