@@ -1,4 +1,3 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -255,7 +254,7 @@
       border: 1px solid var(--border);
       background: rgba(0,0,0,0.18);
       overflow: hidden;
-      display: flex;              /* keeps header/table/footer aligned */
+      display: flex;
       flex-direction: column;
     }
 
@@ -281,15 +280,6 @@
     }
     tbody tr:hover { background: rgba(255,255,255,0.03); }
 
-    .footer-note {
-      padding: 10px 12px;
-      font-size: 12px;
-      color: var(--muted);
-      border-top: 1px solid rgba(231,238,248,0.08);
-      background: rgba(255,255,255,0.02);
-    }
-    .footer-note:empty { display: none; } /* removes the empty footer when we delete text */
-
     .msCell { font-weight: 900; }
     .mono { font-variant-numeric: tabular-nums; }
 
@@ -308,7 +298,7 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: .2px;
-      min-height: 40px; /* alignment: same header height on both panels */
+      min-height: 40px;
     }
 
     /* =========================
@@ -386,8 +376,11 @@
     <div class="hint">Tip: Click inside the box so the page keeps focus. Right-click menu is disabled inside the box.</div>
 
     <!-- =========================
-         [HTML: TAB 1]
-         Goal: M2 hold timing + rolling last-10 + always-on leaderboard logging
+         [HTML: TAB 1 — M2 HOLD TIMER]
+         Goal:
+           - Collect exactly 10 tries (a “session”)
+           - At 10 tries: compute avg -> insert into Top-10 -> reset session
+           - No extra footer spacing (removed)
          ========================= -->
     <div class="tabPane active" id="tab1">
 
@@ -406,8 +399,6 @@
 
       <div class="controls">
         <button id="reset1" type="button">Reset tries</button>
-
-        <!-- NOTE: checkbox removed; logging is always ON now -->
 
         <div class="metric" id="avgMetric1" aria-label="Average timing">
           <div class="label" id="avgLabel1">Avg (last 10)</div>
@@ -435,8 +426,6 @@
             </thead>
             <tbody id="tbody1"></tbody>
           </table>
-          <!-- footer text removed -->
-          <div class="footer-note"></div>
         </div>
 
         <div class="panel" aria-label="Session leaderboard">
@@ -453,8 +442,6 @@
             </thead>
             <tbody id="leaderBody1"></tbody>
           </table>
-          <!-- footer text removed -->
-          <div class="footer-note"></div>
         </div>
       </div>
     </div>
@@ -524,7 +511,9 @@
               <div class="mono" id="stage3Summary">—</div>
             </div>
 
-            <div class="footer-note">Sequence: Hold M1 → M2 → M2 → M2 → release M1. It will complete even if you fail, so you can see what passed and what didn’t.</div>
+            <div class="pillTitle" style="border:0; background:transparent; padding:0; min-height:auto; text-transform:none; letter-spacing:0; color:var(--muted); font-size:12px;">
+              Sequence: Hold M1 → M2 → M2 → M2 → release M1. It will complete even if you fail, so you can see what passed and what didn’t.
+            </div>
           </div>
         </div>
 
@@ -554,11 +543,10 @@
   function lerp(a,b,t){ return a + (b-a)*t; }
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
 
-  // Color mapping with 50ms = orange:
-  // 20..31 => green
-  // 31..50 => green -> orange
-  // 50..70 => orange -> red
-  // >=70 => red
+  /* =========================
+     [JS: COLOR MAP]
+     Goal: ms => color (green perfect 20-31, orange at 50, red > 70)
+     ========================= */
   function msToColor(ms) {
     if (!Number.isFinite(ms)) return 'inherit';
 
@@ -586,7 +574,6 @@
 
     if (ms >= 70) return `rgb(${red.r}, ${red.g}, ${red.b})`;
 
-    // < 20: cooler cyan-green
     if (ms < 20) {
       const t = clamp((20 - ms) / 10, 0, 1);
       const r = Math.round(lerp(green.r, 70, t));
@@ -633,9 +620,6 @@
   const tab1 = document.getElementById('tab1');
   const tab2 = document.getElementById('tab2');
 
-  // (Defined later; hoisted via JS function scope usage)
-  // box1 / box2 exist below.
-
   function activateTab(n){
     if (n === 1){
       tabBtn1.classList.add('active'); tabBtn2.classList.remove('active');
@@ -652,14 +636,13 @@
   tabBtn1.addEventListener('click', ()=>activateTab(1));
   tabBtn2.addEventListener('click', ()=>activateTab(2));
 
-  /* =========================
-     [JS: TAB 1 — M2 HOLD TIMER]
+  /* ============================================================
+     [JS: TAB 1 — M2 HOLD TIMER (SESSION MODE)]
      Goal:
-       - Rolling last 10 tries (never clears at 10)
-       - Always compute avg when window is full (10)
-       - Always attempt Top-10 leaderboard insert
-       - No checkbox
-     ========================= */
+       - Exactly 10 tries per session
+       - At 10: compute avg -> insert into Top-10 -> clear session
+       - Shows 10 slots with placeholders
+     ============================================================ */
   const box1 = document.getElementById('box1');
   const stateDot1 = document.getElementById('stateDot1');
   const stateText1 = document.getElementById('stateText1');
@@ -680,7 +663,7 @@
 
   let m1Down1=false, m2Down1=false, measuring1=false, start1=0;
 
-  // Rolling last-10 (window)
+  // Session tries (0..10). Resets after logging.
   const tries1 = [];
 
   // Leaderboard: best 10 averages (ascending)
@@ -719,6 +702,7 @@
 
         tdS.textContent = (ms/1000).toFixed(4);
         tdS.className = 'mono';
+        tdS.style.color = '';
       } else {
         tdMs.textContent = '—';
         tdMs.className = 'mono';
@@ -809,6 +793,10 @@
   box1.addEventListener('contextmenu', e=>e.preventDefault());
   box1.addEventListener('pointerdown', ()=>box1.focus());
 
+  /* =========================
+     [JS: TAB 1 INPUT HANDLERS]
+     Goal: M1 hold, M2 hold timing, record on M2 release
+     ========================= */
   box1.addEventListener('mousedown', (e)=>{
     if (e.button === 0) m1Down1=true;
     if (e.button === 2){
@@ -839,19 +827,22 @@
         if (m1Down1){
           const dur = now() - start1;
 
-          // Rolling last-10: only drops oldest when adding past 10
+          // SESSION MODE:
+          // Add until we reach 10, then log avg + reset session.
           tries1.push(dur);
-          if (tries1.length > 10) tries1.shift();
 
           renderTries1();
           flash1('ok');
 
-          // Always-on logging: when window is full, compute avg & attempt leaderboard insert
           if (tries1.length === 10){
             const avg = computeAvg(tries1);
             if (avg >= 35 && avg <= 40) triggerSpecialAvg1();
             tryInsertLeaderboard1(avg);
             renderLeaderboard1();
+
+            // reset the session after logging
+            tries1.length = 0;
+            renderTries1();
           }
         } else {
           flash1('bad');
@@ -884,10 +875,10 @@
   renderTries1();
   renderLeaderboard1();
 
-  /* =========================
+  /* ============================================================
      [JS: TAB 2 — INSTA FEINTS]
      Goal: sequence logic + report (your existing behavior)
-     ========================= */
+     ============================================================ */
   const box2 = document.getElementById('box2');
   const stateDot2 = document.getElementById('stateDot2');
   const stateText2 = document.getElementById('stateText2');
@@ -938,7 +929,7 @@
     m2Holds=[];
     lastM2UpTime=0;
     m1ReleaseDelta = NaN;
-    renderReport2(); // clear to placeholders
+    renderReport2();
     updateUI2();
   }
 
@@ -966,7 +957,6 @@
   }
 
   function evalStage(maxMs){
-    // pass if all 3 M2 holds are <= maxMs AND m1ReleaseDelta <= maxMs
     if (m2Holds.length !== 3 || !Number.isFinite(m1ReleaseDelta)) return false;
     const m2ok = m2Holds.every(x => Number.isFinite(x) && x <= maxMs);
     const m1ok = m1ReleaseDelta <= maxMs;
@@ -979,16 +969,14 @@
     const m2b = m2Holds[1];
     const m2c = m2Holds[2];
 
-    kv2.appendChild(kvItem('M2 #1 hold', Number.isFinite(m2a) ? `${m2a.toFixed(2)} ms` : '—', Number.isFinite(m2a) ? '' : ''));
-    kv2.appendChild(kvItem('M2 #2 hold', Number.isFinite(m2b) ? `${m2b.toFixed(2)} ms` : '—', Number.isFinite(m2b) ? '' : ''));
-    kv2.appendChild(kvItem('M2 #3 hold', Number.isFinite(m2c) ? `${m2c.toFixed(2)} ms` : '—', Number.isFinite(m2c) ? '' : ''));
-    kv2.appendChild(kvItem('M1 release timing', Number.isFinite(m1ReleaseDelta) ? `${m1ReleaseDelta.toFixed(2)} ms` : '—', Number.isFinite(m1ReleaseDelta) ? '' : ''));
+    kv2.appendChild(kvItem('M2 #1 hold', Number.isFinite(m2a) ? `${m2a.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M2 #2 hold', Number.isFinite(m2b) ? `${m2b.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M2 #3 hold', Number.isFinite(m2c) ? `${m2c.toFixed(2)} ms` : '—'));
+    kv2.appendChild(kvItem('M1 release timing', Number.isFinite(m1ReleaseDelta) ? `${m1ReleaseDelta.toFixed(2)} ms` : '—'));
 
-    // Color the values if present
     [...kv2.querySelectorAll('.kvVal')].forEach((el, idx) => {
       const raw = [m2a,m2b,m2c,m1ReleaseDelta][idx];
-      if (Number.isFinite(raw)) el.style.color = msToColor(raw);
-      else el.style.color = 'rgba(231,238,248,0.35)';
+      el.style.color = Number.isFinite(raw) ? msToColor(raw) : 'rgba(231,238,248,0.35)';
     });
 
     const s1 = evalStage(60);
@@ -1004,10 +992,9 @@
       stage2Summary.textContent = s2 ? 'PASS' : 'FAIL';
       stage3Summary.textContent = s3 ? 'PASS' : 'FAIL';
     } else {
-      // placeholder
-      stage1Badge.className = 'badge'; stage1Badge.textContent = '—'; setStageRow(stage1Row, true);
-      stage2Badge.className = 'badge'; stage2Badge.textContent = '—'; setStageRow(stage2Row, true);
-      stage3Badge.className = 'badge'; stage3Badge.textContent = '—'; setStageRow(stage3Row, true);
+      stage1Badge.className = 'badge'; stage1Badge.textContent = '—';
+      stage2Badge.className = 'badge'; stage2Badge.textContent = '—';
+      stage3Badge.className = 'badge'; stage3Badge.textContent = '—';
       stage1Summary.textContent = '—';
       stage2Summary.textContent = '—';
       stage3Summary.textContent = '—';
@@ -1020,37 +1007,27 @@
     }
   }
 
-  function hardFailFlash(){
-    flash2('bad');
-  }
+  function hardFailFlash(){ flash2('bad'); }
 
   box2.addEventListener('contextmenu', e=>e.preventDefault());
   box2.addEventListener('pointerdown', ()=>box2.focus());
 
   box2.addEventListener('mousedown', (e)=>{
     if (e.button === 0){
-      // M1 down begins attempt
       insta_m1Down = true;
-      if (step === 0) step = 1; // expecting M2 #1
+      if (step === 0) step = 1;
       updateUI2();
       return;
     }
 
     if (e.button === 2){
-      // M2 down
-      if (!insta_m1Down){
-        // cannot start with M2
-        hardFailFlash();
-        return;
-      }
+      if (!insta_m1Down){ hardFailFlash(); return; }
 
-      // Only allow M2 holds in steps 1..3
       if (step >= 1 && step <= 3 && !insta_measuringM2){
         insta_measuringM2 = true;
         insta_m2Start = now();
         updateUI2();
       } else {
-        // wrong time to press M2
         hardFailFlash();
       }
     }
@@ -1058,7 +1035,6 @@
 
   box2.addEventListener('mouseup', (e)=>{
     if (e.button === 2){
-      // M2 up
       if (insta_measuringM2){
         const dur = now() - insta_m2Start;
         m2Holds.push(dur);
@@ -1067,20 +1043,16 @@
         insta_m2Start = 0;
 
         flash2('ok');
-
-        // advance step 1->2->3->4
         if (step >= 1 && step <= 3) step += 1;
 
         updateUI2();
-        renderReport2(); // partial report updates as you go
+        renderReport2();
       }
       return;
     }
 
     if (e.button === 0){
-      // M1 up (finishes only if step==4 and we have 3 M2 holds)
       if (!insta_m1Down) return;
-
       insta_m1Down = false;
 
       if (step === 4 && m2Holds.length === 3 && Number.isFinite(lastM2UpTime)){
@@ -1088,23 +1060,19 @@
         flash2('ok');
         renderReport2();
       } else {
-        // released too early / wrong sequence, still show whatever we got
         hardFailFlash();
         renderReport2();
       }
 
-      // reset for next attempt
       insta_measuringM2 = false;
       insta_m2Start = 0;
       step = 0;
 
-      // Keep last attempt values visible; but reset live state.
       updateUI2();
     }
   });
 
   box2.addEventListener('mouseleave', ()=>{
-    // prevent stuck measuring
     if (insta_measuringM2){
       insta_measuringM2 = false;
       insta_m2Start = 0;
@@ -1123,4 +1091,3 @@
 </script>
 </body>
 </html>
-```
