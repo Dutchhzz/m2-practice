@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>M2 Hold While M1 Held — 10-try Average</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 24px; line-height: 1.35; }
+    .box {
+      width: min(720px, 95vw);
+      height: 260px;
+      border: 2px dashed #444;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      user-select: none;
+      margin-top: 14px;
+      padding: 14px;
+    }
+    .status { font-size: 18px; }
+    .hint { color: #444; margin-top: 8px; }
+    .row { margin-top: 18px; width: min(720px, 95vw); }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #888; cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid #aaa; margin-left: 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>M2 hold duration while holding M1</h1>
+  <div class="row">
+    <div><b>Rules:</b> Hold <b>M1</b> (left), then press+hold <b>M2</b> (right). Release M2 to record a try.</div>
+    <div class="hint">Tip: Use the box area so the browser keeps focus. Right-click menu is disabled inside the box.</div>
+  </div>
+
+  <div id="box" class="box" tabindex="0" role="application" aria-label="Test area">
+    <div>
+      <div class="status" id="status">Click inside the box, then hold M1. While holding M1, hold M2.</div>
+      <div class="hint" id="flags">M1: up · M2: up</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="reset">Reset tries</button>
+    <span class="pill" id="avgPill">Avg (last 10): —</span>
+    <span class="pill" id="lastPill">Last: —</span>
+  </div>
+
+  <div class="row">
+    <table>
+      <thead>
+        <tr>
+          <th>Try</th>
+          <th>Hold (ms)</th>
+          <th>Hold (s)</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+<script>
+(() => {
+  const box = document.getElementById('box');
+  const status = document.getElementById('status');
+  const flags = document.getElementById('flags');
+  const tbody = document.getElementById('tbody');
+  const avgPill = document.getElementById('avgPill');
+  const lastPill = document.getElementById('lastPill');
+  const resetBtn = document.getElementById('reset');
+
+  // State
+  let m1Down = false;
+  let m2Down = false;
+  let measuring = false;
+  let startTime = 0;
+
+  /** store last 10 valid tries (ms) */
+  const tries = [];
+
+  function now() {
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
+
+  function updateUI() {
+    flags.textContent = `M1: ${m1Down ? 'down' : 'up'} · M2: ${m2Down ? 'down' : 'up'}`;
+
+    if (!m1Down && !measuring) {
+      status.textContent = 'Hold M1 (left). While holding M1, press+hold M2 (right).';
+    } else if (m1Down && !measuring) {
+      status.textContent = 'Good. Now hold M2 (right) while still holding M1.';
+    } else if (measuring) {
+      status.textContent = 'Measuring… keep holding M2, then release M2 (while still holding M1) to record.';
+    }
+  }
+
+  function renderTable() {
+    tbody.innerHTML = '';
+    tries.forEach((ms, i) => {
+      const tr = document.createElement('tr');
+      const tdTry = document.createElement('td');
+      const tdMs = document.createElement('td');
+      const tdS = document.createElement('td');
+
+      tdTry.textContent = `#${i + 1}`;
+      tdMs.textContent = ms.toFixed(2);
+      tdS.textContent = (ms / 1000).toFixed(4);
+
+      tr.appendChild(tdTry);
+      tr.appendChild(tdMs);
+      tr.appendChild(tdS);
+      tbody.appendChild(tr);
+    });
+
+    if (tries.length) {
+      const last = tries[tries.length - 1];
+      lastPill.textContent = `Last: ${last.toFixed(2)} ms`;
+    } else {
+      lastPill.textContent = 'Last: —';
+    }
+
+    if (tries.length) {
+      const avg = tries.reduce((a, b) => a + b, 0) / tries.length;
+      avgPill.textContent = `Avg (last ${tries.length}): ${avg.toFixed(2)} ms`;
+    } else {
+      avgPill.textContent = 'Avg (last 10): —';
+    }
+  }
+
+  function resetAll() {
+    m1Down = false;
+    m2Down = false;
+    measuring = false;
+    startTime = 0;
+    tries.length = 0;
+    renderTable();
+    updateUI();
+  }
+
+  // Disable the context menu inside the test box (so right-click doesn’t pop the menu)
+  box.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Keep focus for reliable input
+  box.addEventListener('pointerdown', () => box.focus());
+
+  // Mouse down
+  box.addEventListener('mousedown', (e) => {
+    if (e.button === 0) { // M1
+      m1Down = true;
+    }
+    if (e.button === 2) { // M2
+      m2Down = true;
+
+      // Start a try ONLY if M1 is already held and we aren't already measuring
+      if (m1Down && !measuring) {
+        measuring = true;
+        startTime = now();
+      }
+    }
+    updateUI();
+  });
+
+  // Mouse up
+  box.addEventListener('mouseup', (e) => {
+    if (e.button === 0) { // M1 released
+      m1Down = false;
+
+      // If M1 is released while measuring, invalidate current try
+      if (measuring) {
+        measuring = false;
+        startTime = 0;
+        status.textContent = 'Try invalid: M1 was released before M2. Hold M1 the whole time.';
+      }
+    }
+
+    if (e.button === 2) { // M2 released
+      m2Down = false;
+
+      if (measuring) {
+        // Valid only if M1 is STILL held when M2 is released
+        if (m1Down) {
+          const duration = now() - startTime;
+          tries.push(duration);
+          // Keep only last 10
+          if (tries.length > 10) tries.shift();
+          renderTable();
+        } else {
+          status.textContent = 'Try invalid: M1 must be held when releasing M2.';
+        }
+        measuring = false;
+        startTime = 0;
+      }
+    }
+
+    updateUI();
+  });
+
+  // Safety: if mouse leaves the box while pressed, stop measuring to avoid stuck state
+  box.addEventListener('mouseleave', () => {
+    // Don’t auto-invalidate if nothing is happening; but prevent “stuck measuring”
+    if (measuring && (!m2Down || !m1Down)) {
+      measuring = false;
+      startTime = 0;
+    }
+    updateUI();
+  });
+
+  resetBtn.addEventListener('click', resetAll);
+
+  // Init
+  renderTable();
+  updateUI();
+  box.focus();
+})();
+</script>
+</body>
+</html>
