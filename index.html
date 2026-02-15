@@ -1,10 +1,16 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>M2 Hold Timer</title>
+
   <style>
+    /* =========================
+       [CSS: THEME + GLOBALS]
+       Goal: Colors, base layout, typography
+       ========================= */
     :root{
       --bg: #0b0f14;
       --text: #e7eef8;
@@ -50,6 +56,10 @@
     header { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom: 10px; }
     h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
 
+    /* =========================
+       [CSS: TABS]
+       Goal: 2 tab buttons + active styles
+       ========================= */
     .tabs {
       display: inline-flex;
       gap: 8px;
@@ -79,6 +89,10 @@
       font-size: 13px;
     }
 
+    /* =========================
+       [CSS: INPUT BOX + STATE UI]
+       Goal: The big dashed area + dot + check/cross flash
+       ========================= */
     .box {
       width: 100%;
       height: 260px;
@@ -157,6 +171,10 @@
     .icon.ok { border-color: rgba(86,211,100,0.55); background: rgba(86,211,100,0.12); }
     .icon.bad { border-color: rgba(255,77,77,0.55); background: rgba(255,77,77,0.12); }
 
+    /* =========================
+       [CSS: CONTROLS + METRICS]
+       Goal: Reset button + Avg/Last pills
+       ========================= */
     .controls {
       display: flex;
       flex-wrap: wrap;
@@ -176,45 +194,6 @@
     }
     button:hover { background: rgba(255,255,255,0.07); border-color: rgba(122,162,255,0.45); }
     button:active { transform: translateY(1px); }
-
-    .check {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border2);
-      background: rgba(255,255,255,0.03);
-      user-select: none;
-    }
-    .check input { display: none; }
-    .check .boxy {
-      width: 18px; height: 18px;
-      border-radius: 6px;
-      border: 1px solid var(--border2);
-      display: grid;
-      place-items: center;
-      background: rgba(0,0,0,0.25);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
-      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
-    }
-    .check .label { color: var(--text); font-size: 13px; white-space: nowrap; }
-    .check input:checked + .boxy {
-      border-color: rgba(122,162,255,0.65);
-      background: rgba(122,162,255,0.18);
-      box-shadow: inset 0 0 0 2px rgba(122,162,255,0.22);
-    }
-    .check .tick {
-      width: 10px; height: 6px;
-      border-left: 2px solid transparent;
-      border-bottom: 2px solid transparent;
-      transform: rotate(-45deg);
-      margin-top: -1px;
-    }
-    .check input:checked + .boxy .tick {
-      border-left-color: var(--text);
-      border-bottom-color: var(--text);
-    }
 
     .metric {
       display: inline-flex;
@@ -244,6 +223,10 @@
       box-shadow: inset 0 0 0 1px rgba(86,211,100,0.10);
     }
 
+    /* =========================
+       [CSS: SPECIAL AVG EFFECT]
+       Goal: Highlight avg when it falls in 35-40ms
+       ========================= */
     .avg-special {
       animation: avgPulse 900ms ease-out 1;
       box-shadow:
@@ -255,6 +238,10 @@
     }
     @keyframes avgPulse { 0%{transform:scale(1)} 40%{transform:scale(1.03)} 100%{transform:scale(1)} }
 
+    /* =========================
+       [CSS: PANELS + TABLES]
+       Goal: Two aligned boxes (Last 10 tries + Leaderboard)
+       ========================= */
     .grid2 {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
@@ -268,6 +255,8 @@
       border: 1px solid var(--border);
       background: rgba(0,0,0,0.18);
       overflow: hidden;
+      display: flex;              /* keeps header/table/footer aligned */
+      flex-direction: column;
     }
 
     table { border-collapse: collapse; width: 100%; }
@@ -299,6 +288,7 @@
       border-top: 1px solid rgba(231,238,248,0.08);
       background: rgba(255,255,255,0.02);
     }
+    .footer-note:empty { display: none; } /* removes the empty footer when we delete text */
 
     .msCell { font-weight: 900; }
     .mono { font-variant-numeric: tabular-nums; }
@@ -318,9 +308,13 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: .2px;
+      min-height: 40px; /* alignment: same header height on both panels */
     }
 
-    /* Insta report */
+    /* =========================
+       [CSS: TAB 2 REPORT UI]
+       Goal: the "Sequence report" layout
+       ========================= */
     .report {
       padding: 10px 12px;
       display: grid;
@@ -367,16 +361,20 @@
     }
     .kvKey{ color: var(--muted); }
     .kvVal{ font-weight: 900; }
-    .kvVal.bad { color: var(--bad); }
-    .kvVal.ok { color: var(--good); }
 
     /* Hide/show tabs */
     .tabPane { display: none; }
     .tabPane.active { display: block; }
   </style>
 </head>
+
 <body>
   <div class="app">
+
+    <!-- =========================
+         [HTML: HEADER + TABS]
+         Goal: Title + 2 tab buttons
+         ========================= -->
     <header>
       <h1 id="pageTitle">M2 Hold Timer</h1>
       <div class="tabs">
@@ -387,8 +385,12 @@
 
     <div class="hint">Tip: Click inside the box so the page keeps focus. Right-click menu is disabled inside the box.</div>
 
-    <!-- TAB 1 -->
+    <!-- =========================
+         [HTML: TAB 1]
+         Goal: M2 hold timing + rolling last-10 + always-on leaderboard logging
+         ========================= -->
     <div class="tabPane active" id="tab1">
+
       <div id="box1" class="box" tabindex="0" role="application" aria-label="M2 Hold test area">
         <div class="stateOnly" aria-live="polite">
           <div class="stateLine">
@@ -405,11 +407,7 @@
       <div class="controls">
         <button id="reset1" type="button">Reset tries</button>
 
-        <label class="check" title="When 10 valid tries are reached, compute avg, attempt leaderboard insert, then clear tries.">
-          <input id="sessionLogToggle1" type="checkbox" />
-          <span class="boxy"><span class="tick"></span></span>
-          <span class="label">Log avg every 10 (leaderboard)</span>
-        </label>
+        <!-- NOTE: checkbox removed; logging is always ON now -->
 
         <div class="metric" id="avgMetric1" aria-label="Average timing">
           <div class="label" id="avgLabel1">Avg (last 10)</div>
@@ -437,7 +435,8 @@
             </thead>
             <tbody id="tbody1"></tbody>
           </table>
-          <div class="footer-note">Always shows 10 slots. With logging enabled: at 10 valid tries → avg computed → inserted into Top-10 if good enough → tries cleared.</div>
+          <!-- footer text removed -->
+          <div class="footer-note"></div>
         </div>
 
         <div class="panel" aria-label="Session leaderboard">
@@ -454,12 +453,16 @@
             </thead>
             <tbody id="leaderBody1"></tbody>
           </table>
-          <div class="footer-note">Only keeps 10 entries. A new avg is added only if it’s better (lower) than the current worst entry.</div>
+          <!-- footer text removed -->
+          <div class="footer-note"></div>
         </div>
       </div>
     </div>
 
-    <!-- TAB 2 -->
+    <!-- =========================
+         [HTML: TAB 2]
+         Goal: Sequence timing / report (unchanged)
+         ========================= -->
     <div class="tabPane" id="tab2">
       <div id="box2" class="box" tabindex="0" role="application" aria-label="Insta Feints test area">
         <div class="stateOnly" aria-live="polite">
@@ -541,7 +544,10 @@
 
 <script>
 (() => {
-  // ---------- shared helpers ----------
+  /* =========================
+     [JS: SHARED HELPERS]
+     Goal: timing + colors + UI helpers shared across tabs
+     ========================= */
   function now() {
     return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   }
@@ -617,12 +623,18 @@
     return arr.reduce((a,b)=>a+b,0) / arr.length;
   }
 
-  // ---------- Tabs ----------
+  /* =========================
+     [JS: TABS]
+     Goal: switching between Tab 1 and Tab 2
+     ========================= */
   const pageTitle = document.getElementById('pageTitle');
   const tabBtn1 = document.getElementById('tabBtn1');
   const tabBtn2 = document.getElementById('tabBtn2');
   const tab1 = document.getElementById('tab1');
   const tab2 = document.getElementById('tab2');
+
+  // (Defined later; hoisted via JS function scope usage)
+  // box1 / box2 exist below.
 
   function activateTab(n){
     if (n === 1){
@@ -640,9 +652,14 @@
   tabBtn1.addEventListener('click', ()=>activateTab(1));
   tabBtn2.addEventListener('click', ()=>activateTab(2));
 
-  // ============================================================
-  // TAB 1: M2 Hold Timer + Top-10 leaderboard
-  // ============================================================
+  /* =========================
+     [JS: TAB 1 — M2 HOLD TIMER]
+     Goal:
+       - Rolling last 10 tries (never clears at 10)
+       - Always compute avg when window is full (10)
+       - Always attempt Top-10 leaderboard insert
+       - No checkbox
+     ========================= */
   const box1 = document.getElementById('box1');
   const stateDot1 = document.getElementById('stateDot1');
   const stateText1 = document.getElementById('stateText1');
@@ -659,12 +676,15 @@
   const lastValue1 = document.getElementById('lastValue1');
 
   const reset1 = document.getElementById('reset1');
-  const sessionLogToggle1 = document.getElementById('sessionLogToggle1');
   const clearBoard1 = document.getElementById('clearBoard1');
 
   let m1Down1=false, m2Down1=false, measuring1=false, start1=0;
+
+  // Rolling last-10 (window)
   const tries1 = [];
-  const leaderboard1 = []; // store avg ms, sorted asc, length<=10
+
+  // Leaderboard: best 10 averages (ascending)
+  const leaderboard1 = [];
 
   let specialTimer1=null;
   function triggerSpecialAvg1(){
@@ -681,6 +701,8 @@
 
   function renderTries1(){
     tbody1.innerHTML = '';
+
+    // Always show 10 rows (placeholders when missing)
     for (let i=0;i<10;i++){
       const ms = tries1[i];
       const tr = document.createElement('tr');
@@ -736,6 +758,8 @@
 
   function renderLeaderboard1(){
     leaderBody1.innerHTML = '';
+
+    // Always show 10 rows (placeholders when missing)
     for (let i=0;i<10;i++){
       const ms = leaderboard1[i];
       const tr = document.createElement('tr');
@@ -759,7 +783,7 @@
   }
 
   function tryInsertLeaderboard1(avg){
-    // true Top-10: keep only best/lowest 10, ignore worse
+    // Top-10: keep only best/lowest 10, ignore worse
     if (!Number.isFinite(avg)) return;
 
     if (leaderboard1.length < 10){
@@ -770,7 +794,6 @@
     const worst = leaderboard1[leaderboard1.length - 1];
     if (avg >= worst) return; // worse/higher => ignore
 
-    // insert and trim
     leaderboard1.push(avg);
     leaderboard1.sort((a,b)=>a-b);
     leaderboard1.length = 10;
@@ -808,27 +831,32 @@
       }
       updateUI1();
     }
+
     if (e.button === 2){
       m2Down1=false;
+
       if (measuring1){
         if (m1Down1){
           const dur = now() - start1;
+
+          // Rolling last-10: only drops oldest when adding past 10
           tries1.push(dur);
           if (tries1.length > 10) tries1.shift();
+
           renderTries1();
           flash1('ok');
 
-          if (sessionLogToggle1.checked && tries1.length === 10){
+          // Always-on logging: when window is full, compute avg & attempt leaderboard insert
+          if (tries1.length === 10){
             const avg = computeAvg(tries1);
             if (avg >= 35 && avg <= 40) triggerSpecialAvg1();
             tryInsertLeaderboard1(avg);
             renderLeaderboard1();
-            tries1.length = 0;
-            renderTries1();
           }
         } else {
           flash1('bad');
         }
+
         measuring1=false;
         start1=0;
         updateUI1();
@@ -856,10 +884,10 @@
   renderTries1();
   renderLeaderboard1();
 
-  // ============================================================
-  // TAB 2: Insta Feints Timings
-  // Sequence: Hold M1 -> M2 -> M2 -> M2 -> Release M1
-  // ============================================================
+  /* =========================
+     [JS: TAB 2 — INSTA FEINTS]
+     Goal: sequence logic + report (your existing behavior)
+     ========================= */
   const box2 = document.getElementById('box2');
   const stateDot2 = document.getElementById('stateDot2');
   const stateText2 = document.getElementById('stateText2');
@@ -868,7 +896,6 @@
   const flash2 = makeFlasher(okIcon2, badIcon2);
 
   const reset2 = document.getElementById('reset2');
-
   const kv2 = document.getElementById('kv2');
 
   const stage1Row = document.getElementById('stage1Row');
@@ -1096,3 +1123,4 @@
 </script>
 </body>
 </html>
+```
