@@ -272,7 +272,12 @@
       padding: 10px 10px;
       text-align: right;
     }
-    th:first-child, td:first-child { text-align: left; }
+    th:first-child, td:first-child {
+      text-align: left;
+      width: 84px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
 
     tbody td {
       border-bottom: 1px solid rgba(231,238,248,0.08);
